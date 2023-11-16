@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify, g, request
 # from flask_pymongo import PyMongo
 from bson import ObjectId, json_util
@@ -6,7 +7,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-app.config['MONGO_URI'] = 'mongodb://localhost:27017/linkme'
+app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/linkme')
 
 def get_db():
     if 'db' not in g:
