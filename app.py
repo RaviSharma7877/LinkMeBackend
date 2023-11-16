@@ -8,7 +8,9 @@ from datetime import datetime
 app = Flask(__name__)
 
 # app.py
-app.config['MONGO_URI'] = 'mongodb://localhost:27017/linkme'
+# app.py
+app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://sraa7877:Ravi@7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
+
 
 def get_db():
     if 'db' not in g:
