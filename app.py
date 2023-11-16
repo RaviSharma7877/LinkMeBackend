@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # app.py
 # app.py
-app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://sraa7877:Ravi@7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
+app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://root:Ravi@7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
 
 
 def get_db():
