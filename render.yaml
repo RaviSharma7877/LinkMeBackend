@@ -1,0 +1,3 @@
+buildCommand: pip install -r requirements.txt
+startCommand: gunicorn -b 0.0.0.0:$PORT your_app_name:app
+pythonVersion: 3.8
