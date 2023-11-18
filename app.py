@@ -1,8 +1,7 @@
 import os
 from flask import Flask, jsonify, g, request, session, redirect, url_for
 from bson import ObjectId, json_util
-from flask_pymongo import PyMongo
-# from pymongo import MongoClient 
+from pymongo import MongoClient 
 from datetime import datetime
 from werkzeug.security import check_password_hash,generate_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
