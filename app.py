@@ -8,8 +8,6 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import bcrypt
 
-from user.user import User
-
 app = Flask(__name__)
 login_manager = LoginManager(app)
 
