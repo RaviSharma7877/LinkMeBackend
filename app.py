@@ -1,17 +1,22 @@
 import os
+import bcrypt
+from bson import json_util
 from flask import Flask, jsonify, g, request, session, redirect, url_for
 from bson import ObjectId, json_util
 from pymongo import MongoClient 
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash,generate_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from job_posting.job_posting import JobPosting
+from flask_bcrypt import Bcrypt
+from flask_principal import Principal, RoleNeed, identity_changed, Identity
 
 from user.user import User
 
 app = Flask(__name__)
 login_manager = LoginManager(app)
+principal = Principal(app)
 
 app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://root:rootravi7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
 app.config['JWT_SECRET_KEY'] = 'mySecreateKeyIsMaiKyuBatau'  # Change this to a secret key of your choice
@@ -24,6 +29,25 @@ def get_db():
     if 'db' not in g:
         g.db = MongoClient(app.config['MONGO_URI'])
     return g.db
+
+
+
+
+
+admin_role = RoleNeed('admin')
+job_seeker_role = RoleNeed('job_seeker')
+
+# Set up default roles for users
+@principal.identity_loader
+def load_identity():
+    if current_user.is_authenticated:
+        identity = Identity(current_user._id)
+        if current_user.is_admin:
+            identity.provides.add(admin_role)
+        else:
+            identity.provides.add(job_seeker_role)
+        return identity
+
 
 
 
@@ -112,24 +136,82 @@ def delete(job_seeker_id):
 # mongo = PyMongo(app)
 
 # job postion
+@app.route('/jobpostings', methods=['GET'])
+def get_job_postings():
+    db = get_db()
+    job_postings_data = list(db.linkme.job_postings.find())
+    
+    return json_util.dumps({'job_postings': job_postings_data}), 200
 @app.route('/create_job_posting', methods=['POST'])
 def create_job_posting():
     db = get_db()
+
+    # Generate a new ObjectId
+    new_job_id = ObjectId()
+
+    # Get other fields from the request
     job_title = request.json['job_title']
+    user_id = request.json['user_id']
     status = request.json['status']
-    start_date = request.json.get('start_date', None)
-    end_date = request.json.get('end_date', None)
+    company = request.json['company']
+    start_date = request.json['start_date']
+    end_date = request.json['end_date']
     hiring_manager = request.json['hiring_manager']
     skill_sets = request.json['skill_sets']
     job_description = request.json['job_description']
 
-    new_job = JobPosting(job_title, status, start_date, end_date, hiring_manager, skill_sets, job_description)
+    # Create a new JobPosting instance with the generated ObjectId
+    new_job = JobPosting(
+        _id=new_job_id,
+        job_title=job_title,
+        user_id=user_id,
+        status=status,
+        company=company,
+        start_date=start_date,
+        end_date=end_date,
+        hiring_manager=hiring_manager,
+        skill_sets=skill_sets,
+        job_description=job_description
+    )
 
     # Insert the new job posting into the database
-    # (Replace 'db' with your actual database connection)
     db.linkme.job_postings.insert_one(new_job.to_dict())
 
     return jsonify(message="Job posting created successfully.")
+
+
+
+# from bson import ObjectId
+
+@app.route('/get_job_posting/<string:job_id>', methods=['GET'])
+def get_job_posting(job_id):
+    db = get_db()
+
+    try:
+        # Convert the job_id to ObjectId
+        job_id_obj = ObjectId(job_id)
+    except:
+        return jsonify(error="Invalid job ID format"), 400
+
+    # print(f"Searching for job posting with _id: {job_id}")
+
+    # Fetch the job posting from the database by ID
+    job_posting = db.linkme.job_postings.find_one({"_id": job_id})
+
+    if job_posting is None:
+        # print("Job posting not found.")
+        return jsonify(error="Job posting not found"), 404
+
+    # Convert the ObjectId to a string in the job posting document
+    job_posting['_id'] = str(job_posting['_id'])
+
+    # print("Job posting found:", job_posting)
+
+    return json_util.dumps(job_posting)
+
+
+
+
 
 @app.route('/update-job-posting/<string:job_posting_id>', methods=['PUT'])
 def update_job_posting(job_posting_id):
@@ -184,6 +266,14 @@ def delete_job_posting(job_posting_id):
 
 
 # application
+@app.route('/get_all_applications', methods=['GET'])
+def get_all_applications():
+    db = get_db()
+    applications_data = list(db.linkme.applications.find())
+
+    return json_util.dumps({'applications': applications_data}), 200
+
+
 @app.route('/apply/<string:job_posting_id>/<string:job_seeker_id>', methods=['POST'])
 def apply(job_posting_id, job_seeker_id):
     data = request.get_json()
@@ -198,9 +288,11 @@ def apply(job_posting_id, job_seeker_id):
     job_posting = get_job_posting(job_posting_id)
 
    
-    if not job_seeker or not job_posting:
+    if not job_seeker:
         return jsonify({'error': 'Job seeker or job posting not found'}), 404
 
+    if not job_posting:
+        return jsonify({'error': 'job posting not found'}), 404 
     if data:
         application_data = {
             'job_seeker_id': job_seeker_id,
@@ -274,21 +366,24 @@ def delete_application(application_id):
 
 
 
-@app.route('/applications', methods=['GET'])
+@app.route('/applications/<string:job_posting_id>', methods=['GET'])
 @login_required
-def get_applications():
+def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
 
-    # Query the database to retrieve applications for the logged-in user
+    # Query the database to check if the user has applied for the specified job
     db = get_db()
-    applications = db.linkme.applications.find({'user_id': user_id})
+    application = db.linkme.applications.find_one({
+        'job_seeker_id': user_id,
+        'job_posting_id': job_posting_id
+    })
 
-    # Convert MongoDB cursor to a list of dictionaries
-    application_list = [app.to_dict() for app in applications]
-
-    # Return the list of applications as JSON
-    return jsonify({'applications': application_list}), 200
+    # Return a response indicating whether the user has applied
+    if application:
+        return jsonify({'applied': True}), 200
+    else:
+        return jsonify({'applied': False}), 200
 
 
 
@@ -305,11 +400,65 @@ def get_applications():
 
 app.config['SECRET_KEY'] = 'MySecreatKeyIsMaiNahiBataunga'
 
-
 @login_manager.user_loader
 def load_user(user_id):
-    # Implement the load_user function as per your User class
-    return User.get_user_by_id(user_id)
+    db = get_db()
+    user_collection = db.linkme.users  # Adjust this based on your actual collection name
+    return User.get_user_by_id(user_id, user_collection)
+
+
+bcrypt = Bcrypt()
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+
+    if data:
+        username = data.get('username')
+        password = data.get('password')
+        img = data.get('img')  # Add additional user details as needed
+        fullName = data.get('fullName')
+        description = data.get('description')
+        status = data.get('status')
+        is_active = data.get('is_active', True)
+        is_admin = data.get('is_admin', False)
+
+        db = get_db()
+
+        # Check if the username is already taken
+        existing_user = db.linkme.users.find_one({'username': username})
+        if existing_user:
+            return jsonify({'error': 'Username already exists'}), 400
+
+        # Hash the password using generate_password_hash
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+        # Create a new user and save details in the database
+        user_data = {
+            'username': username,
+            'password': hashed_password,
+            'img': img,  # Add additional user details as needed
+            'fullName': fullName,
+            'description': description,
+            'status': status,
+            'is_active': is_active,
+            'is_admin': is_admin,
+        }
+
+        result = db.linkme.users.insert_one(user_data)
+        _id = str(result.inserted_id)
+
+        # Optionally, log in the user after registration
+        new_user = User(_id, username, password, img=img, fullName=fullName, description=description, status=status, is_active=is_active, is_admin=is_admin)
+        login_user(new_user)
+
+        return jsonify({'message': 'User registered successfully', 'user_id': _id}), 200
+
+    return jsonify({'error': 'Invalid data provided'}), 400
+
+# Login route
+from flask_jwt_extended import create_access_token
+
+# ...
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -332,16 +481,30 @@ def login():
                     _id=str(user_data['_id']),
                     username=user_data['username'],
                     password=user_data['password'],
-                    # Add other user attributes as needed
+                    is_admin=user_data.get('is_admin', False),  # Add other user attributes as needed
                 )
 
                 # Log in the user using Flask-Login
                 login_user(user)
 
-                # Generate an access token
-                access_token = create_access_token(identity=str(user_data['_id']))
+                # Set a custom expiration time (e.g., 7 days)
+                expires_delta = timedelta(hours=3)
 
-                return jsonify({'message': 'Login successful', 'access_token': access_token}), 200
+                # Generate an access token with custom expiration time
+                access_token = create_access_token(
+                    identity=str(user_data['_id']),
+                    expires_delta=expires_delta
+                )
+
+                expires_in_seconds = expires_delta.total_seconds()
+                
+                return jsonify({
+                    'id': user._id,
+                    'message': 'Login successful',
+                    'access_token': access_token,
+                    'is_admin': user.is_admin,
+                    'expires_in': expires_in_seconds,
+                }), 200
             else:
                 return jsonify({'error': 'Incorrect password'}), 401
         else:
@@ -350,77 +513,88 @@ def login():
     return jsonify({'error': 'Invalid data provided'}), 400
 
 
-@login_manager.user_loader
-def load_user(user_id):
-    db = get_db()
-    return User.get_user_by_id(user_id, db.linkme.users)
 
-
-
+# Logout route
 @app.route('/logout', methods=['GET'])
 @login_required
 def logout():
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
 
-# Protected route example
-@app.route('/protected', methods=['GET'])
-@login_required
-def protected():
-    return jsonify({'message': f'You are logged in as {current_user.username}'}), 200
 
-@app.route('/register', methods=['POST'])
-def register():
+
+@app.route('/users/<string:user_id>', methods=['GET'])
+@login_required
+def get_user_by_id(user_id):
+    db = get_db()
+    user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
+
+    if user:
+        return jsonify({'user': User(**user).to_dict()}), 200
+    else:
+        return jsonify({'error': 'User not found'}), 404
+
+# Endpoint to update a user by ID
+@app.route('/users/<string:user_id>', methods=['PUT'])
+@login_required
+def update_user_by_id(user_id):
     data = request.get_json()
 
+
     if data:
-        username = data.get('username')
-        password = data.get('password')
-        img = data.get('img')  # Add additional user details as needed
-        name = data.get('name')
-        desc = data.get('desc')
-        status = data.get('status')
-        is_active = data.get('is_active', True)
-
         db = get_db()
+        result = db.linkme.users.update_one(
+    {'_id': ObjectId(user_id)},
+    {'$set': {
+        'username': data.get('username'),
+        'img': data.get('img'),
+        'fullName': data.get('fullName'),
+        'description': data.get('description'),
+        'status': data.get('status'),
+        'email': data.get('email'),  # Add email field
+        'is_active': data.get('is_active', True),
+        'is_admin': data.get('is_admin', False),
+        'skills': data.get('skills', [])  # Add skills field (assuming it's a list)
+    }}
+)
 
-        # Check if the username is already taken
-        existing_user = db.linkme.users.find_one({'username': username})
-        if existing_user:
-            return jsonify({'error': 'Username already exists'}), 400
-
-        # Hash the password using generate_password_hash
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-
-        # Create a new user and save details in the database
-        user_data = {
-            'username': username,
-            'password': hashed_password,
-            'img': img,  # Add additional user details as needed
-            'name': name,
-            'desc': desc,
-            'status': status,
-            'is_active': is_active,
-        }
-
-        result = db.linkme.users.insert_one(user_data)
-        _id = str(result.inserted_id)
-
-        # Optionally, log in the user after registration
-        new_user = User(_id, username, password, img=img, name=name, desc=desc, status=status, is_active=is_active)
-        login_user(new_user)
-
-        return jsonify({'message': 'User registered successfully', 'user_id': _id}), 200
+        if result.modified_count > 0:
+            return jsonify({'message': 'User updated successfully'}), 200
+        else:
+            return jsonify({'error': 'User not found or not modified'}), 404
 
     return jsonify({'error': 'Invalid data provided'}), 400
 
 
 
 
+@app.route('/update-password', methods=['PUT'])
+@jwt_required()  # Requires authentication using JWT token
+def update_password():
+    user_id = get_jwt_identity()  # Get the user ID from the JWT token
+    data = request.get_json()
 
+    if data:
+        new_password = data.get('new_password')
 
+        if not new_password:
+            return jsonify({'error': 'New password is required'}), 400
 
+        # Hash the new password using bcrypt
+        hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
+        # Update the user's password in the database
+        result = db.linkme.users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'password': hashed_password}}
+        )
+
+        if result.modified_count > 0:
+            return jsonify({'message': 'Password updated successfully'}), 200
+        else:
+            return jsonify({'error': 'User not found or password not modified'}), 404
+
+    return jsonify({'error': 'Invalid data provided'}), 400
 
 
 
@@ -433,11 +607,18 @@ def register():
 
 def get_job_seeker(job_seeker_id):
     db = get_db()
-    return db.linkme.job_seekers.find_one({'_id': ObjectId(job_seeker_id)})
+    # print(job_seeker_id)
+    data = db.linkme.users.find_one({'_id': ObjectId(job_seeker_id)})
+    # print(data)
+    return data
+
 
 def get_job_posting(job_posting_id):
     db = get_db()
-    return db.linkme.job_postings.find_one({'_id': ObjectId(job_posting_id)})
+    # print("Before query - job_posting_id:", job_posting_id)
+    data = db.linkme.job_postings.find_one({'_id': job_posting_id})
+    # print("After query - data:", data)
+    return data
 
 
 @app.teardown_appcontext
