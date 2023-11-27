@@ -13,8 +13,12 @@ from flask_bcrypt import Bcrypt
 from flask_principal import Principal, RoleNeed, identity_changed, Identity
 import openai
 from user.user import User
+from flask_cors import CORS
+
+
 
 app = Flask(__name__)
+CORS(app)
 login_manager = LoginManager(app)
 principal = Principal(app)
 
