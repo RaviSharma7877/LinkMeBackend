@@ -11,7 +11,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from job_posting.job_posting import JobPosting
 from flask_bcrypt import Bcrypt
 from flask_principal import Principal, RoleNeed, identity_changed, Identity
-
+import openai
 from user.user import User
 
 app = Flask(__name__)
@@ -29,6 +29,55 @@ def get_db():
     if 'db' not in g:
         g.db = MongoClient(app.config['MONGO_URI'])
     return g.db
+
+
+
+
+
+
+openai.api_key = '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'
+
+def get_job_recommendations(user_skills, user_experience):
+    prompt = f"Based on the skills {user_skills} and experience {user_experience}, recommend suitable jobs for the user."
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=200,
+        n=5,
+        stop=None,
+        temperature=0.7,
+    )
+
+    recommendations = [choice['message']['content'] for choice in response['choices']]
+    return recommendations
+
+
+@app.route('/recommend_jobs', methods=['POST'])
+@jwt_required()  # Requires authentication using JWT token
+def recommend_jobs():
+    user_id = get_jwt_identity()  # Get the user ID from the JWT token
+    user_skills = request.json.get('skills', [])  # Assuming 'skill_sets' is a list of skills
+    user_experience_str = request.json.get('experience', "0")  # Assuming 'experience' is a string value
+
+    try:
+        user_experience = int(user_experience_str)
+    except ValueError:
+        return jsonify({'error': 'Invalid experience value, must be a numeric string'}), 400
+
+    print(user_skills)
+    print(user_id)
+    print(request.json)
+
+    print(user_experience)
+    recommendations = get_job_recommendations(user_skills, user_experience)
+
+    return jsonify({'recommendations': recommendations}), 200
+
+
 
 
 
@@ -159,6 +208,9 @@ def create_job_posting():
     hiring_manager = request.json['hiring_manager']
     skill_sets = request.json['skill_sets']
     job_description = request.json['job_description']
+    is_bookmarked = request.json['is_bookmarked']
+    experience = request.json['experience']
+    img = request.json['img']
 
     # Create a new JobPosting instance with the generated ObjectId
     new_job = JobPosting(
@@ -171,7 +223,10 @@ def create_job_posting():
         end_date=end_date,
         hiring_manager=hiring_manager,
         skill_sets=skill_sets,
-        job_description=job_description
+        job_description=job_description,
+        experience=experience,
+        is_bookmarked=is_bookmarked,
+        img=img,
     )
 
     # Insert the new job posting into the database
@@ -253,6 +308,36 @@ def delete_job_posting(job_posting_id):
     else:
         return jsonify({'error': 'Job Posting not found'}), 404
 
+@app.route('/users/bookmark-job/<string:user_id>/<string:job_posting_id>', methods=['PUT'])
+@login_required
+def bookmark_job_by_user_id(user_id, job_posting_id):
+    db = get_db()
+
+    # Check if the user and job posting exist
+    user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
+    job_posting = db.linkme.job_postings.find_one({'_id': ObjectId(job_posting_id)})
+
+    if not user or not job_posting:
+        return jsonify({'error': 'User or job posting not found'}), 404
+
+    # Check if the user has already bookmarked the job posting
+    is_bookmarked = user.get('is_bookmarked', [])
+
+    if job_posting_id in is_bookmarked:
+        return jsonify({'error': 'Job posting is already bookmarked by the user'}), 400
+
+    # Update the user's bookmarked job postings
+    is_bookmarked.append(job_posting_id)
+
+    result = db.linkme.users.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'is_bookmarked': is_bookmarked}}
+    )
+
+    if result.modified_count > 0:
+        return jsonify({'message': 'Job posting bookmarked successfully'}), 200
+    else:
+        return jsonify({'error': 'User not found or bookmark status not modified'}), 404
 
 
 
@@ -419,8 +504,11 @@ def register():
         fullName = data.get('fullName')
         description = data.get('description')
         status = data.get('status')
+        contact_number = data.get('contact_number')
         is_active = data.get('is_active', True)
         is_admin = data.get('is_admin', False)
+        job_seeker = data.get('job_seeker')
+        is_bookmarked = data.get('is_bookmarked', False)
 
         db = get_db()
 
@@ -442,13 +530,16 @@ def register():
             'status': status,
             'is_active': is_active,
             'is_admin': is_admin,
+            'contact_number': contact_number,
+            'job_seeker': job_seeker,
+            'is_bookmarked': is_bookmarked,
         }
 
         result = db.linkme.users.insert_one(user_data)
         _id = str(result.inserted_id)
 
         # Optionally, log in the user after registration
-        new_user = User(_id, username, password, img=img, fullName=fullName, description=description, status=status, is_active=is_active, is_admin=is_admin)
+        new_user = User(_id, username, password, img=img, fullName=fullName, description=description, status=status, is_active=is_active, is_admin=is_admin, is_bookmarked=is_bookmarked,job_seeker=job_seeker, contact_number=contact_number)
         login_user(new_user)
 
         return jsonify({'message': 'User registered successfully', 'user_id': _id}), 200
@@ -552,7 +643,10 @@ def update_user_by_id(user_id):
         'description': data.get('description'),
         'status': data.get('status'),
         'email': data.get('email'),  # Add email field
+        'job_seeker': data.get('job_seeker'),  # Add email field
         'is_active': data.get('is_active', True),
+        'contact_number': data.get('contact_number'),
+        'is_bookmarked': data.get('is_bookmarked'),
         'is_admin': data.get('is_admin', False),
         'skills': data.get('skills', [])  # Add skills field (assuming it's a list)
     }}
@@ -565,7 +659,26 @@ def update_user_by_id(user_id):
 
     return jsonify({'error': 'Invalid data provided'}), 400
 
+@app.route('/users/bookmarked/<string:user_id>', methods=['PUT'])
+@login_required
+def update_bookmark_user_by_id(user_id):
+    data = request.get_json()
 
+    if data:
+        db = get_db()
+        result = db.linkme.users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {
+                'is_bookmarked': data.get('is_bookmarked')
+            }}
+        )
+
+        if result.modified_count > 0:
+            return jsonify({'message': 'User bookmark status updated successfully'}), 200
+        else:
+            return jsonify({'error': 'User not found or bookmark status not modified'}), 404
+
+    return jsonify({'error': 'Invalid data provided'}), 400
 
 
 @app.route('/update-password', methods=['PUT'])

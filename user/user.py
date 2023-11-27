@@ -4,7 +4,7 @@ import bcrypt
 
 
 class User:
-    def __init__(self, _id, username, password, is_admin=False, img=None, fullName=None, description=None, email=None, status=None, is_active=True, skills=None):
+    def __init__(self, _id, username, password, is_admin=False, img=None, fullName=None, description=None, email=None, status=None, is_active=True, skills=None,contact_number=None,job_seeker=None, is_bookmarked=None):
         self._id = _id
         self.username = username
         self.password = self._hash_password(password)
@@ -15,6 +15,9 @@ class User:
         self.email = email
         self.status = status
         self.is_active = is_active
+        self.job_seeker = job_seeker
+        self.contact_number = contact_number
+        self.is_bookmarked = is_bookmarked
         self.skills = skills if skills is not None else []
 
     def to_dict(self):
@@ -29,7 +32,10 @@ class User:
             'email': self.email,
             'status': self.status,
             'is_active': self.is_active,
+            'job_seeker': self.job_seeker,
             'skills': self.skills,
+            'is_bookmarked': self.is_bookmarked,
+            'contact_number': self.contact_number,
         }
 
     def _hash_password(self, password):
