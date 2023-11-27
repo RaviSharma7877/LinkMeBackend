@@ -14,7 +14,7 @@ distro==1.8.0
 dnspython==2.3.0
 email-validator==2.1.0
 filelock==3.12.2
-Flask==3.0.0
+Flask==2.2.5
 Flask-Bcrypt==1.0.1
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.3
