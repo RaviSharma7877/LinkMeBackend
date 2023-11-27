@@ -14,6 +14,8 @@ from flask_principal import Principal, RoleNeed, identity_changed, Identity
 import openai
 from user.user import User
 from flask_cors import CORS
+from httpcore import CloseError
+
 
 
 
