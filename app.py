@@ -564,7 +564,7 @@ def check_application(job_posting_id):
 app.config['SECRET_KEY'] = 'MySecreatKeyIsMaiNahiBataunga'
 
 @login_manager.user_loader
-@jwt_required()
+# @jwt_required()
 def load_user(user_id):
     db = get_db()
     user_collection = db.linkme.users  # Adjust this based on your actual collection name
