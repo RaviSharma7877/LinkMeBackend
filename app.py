@@ -419,7 +419,7 @@ def update_job_status_endpoint(job_id):
 
 
 
-from werkzeug.utils import secure_filename
+
 
 # application
 @app.route('/get_all_applications', methods=['GET'])
@@ -428,9 +428,6 @@ def get_all_applications():
     applications_data = list(db.linkme.applications.find())
 
     return json_util.dumps({'applications': applications_data}), 200
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 
 @app.route('/apply/<string:job_posting_id>/<string:job_seeker_id>', methods=['POST'])
@@ -449,12 +446,9 @@ def apply(job_posting_id, job_seeker_id):
 
     # Get data from JSON payload
     data = request.get_json()
-    db = get_db()
-    print(f"Received files: {data}")
 
     if data:
         # Check if 'resume' file is present in the request
-        print(request.files)
         if 'resume' in request.files:
             resume_file = request.files['resume']
 
