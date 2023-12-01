@@ -19,7 +19,14 @@ from flask_cors import CORS
 
 
 app = Flask(__name__)
-CORS(app)
+CORS(app,
+    origins=['http://localhost:3000', 'https://linkmebackend.onrender.com'],
+    allow_headers=["Content-Type", "Authorization"],
+    supports_credentials=True,
+    expose_headers=["Content-Range", "X-Content-Range"])
+
+
+
 login_manager = LoginManager(app)
 principal = Principal(app)
 
