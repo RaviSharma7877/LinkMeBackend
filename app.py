@@ -523,6 +523,7 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
+@login_required
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
@@ -531,7 +532,7 @@ def check_application(job_posting_id):
     db = get_db()
     application = db.linkme.applications.find_one({
         'job_seeker_id': user_id,
-        'job_posting_id': job_posting_id
+        'job_posting_id': str(job_posting_id)
     })
 
     # Return a response indicating whether the user has applied
