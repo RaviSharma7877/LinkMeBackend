@@ -705,7 +705,7 @@ def logout():
 
 
 @app.route('/users/<string:user_id>', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_user_by_id(user_id):
     db = get_db()
     user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
