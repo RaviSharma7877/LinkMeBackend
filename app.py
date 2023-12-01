@@ -23,13 +23,13 @@ CORS(app)
 login_manager = LoginManager(app)
 principal = Principal(app)
 
-app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://root:rootravi7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
 app.config['JWT_SECRET_KEY'] = 'mySecreateKeyIsMaiKyuBatau'  # Change this to a secret key of your choice
 jwt = JWTManager(app)
 
 
 
 
+app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://root:rootravi7877@cluster0.vwzslkb.mongodb.net/?retryWrites=true&w=majority')
 def get_db():
     if 'db' not in g:
         g.db = MongoClient(app.config['MONGO_URI'])
@@ -40,32 +40,45 @@ def get_db():
 
 
 
-openai.api_key = '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'
+openai.api_key = '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'
 
-def get_job_recommendations(user_skills, user_experience):
-    prompt = f"Based on the skills {user_skills} and experience {user_experience}, recommend suitable jobs for the user."
+from pymongo import DESCENDING
+# Function to get job recommendations from the database
+def get_jobs_from_database(user_skills, user_experience_str):
+    db = get_db()
+    job_postings_collection = db["linkme"]["job_postings"]
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=200,
-        n=5,
-        stop=None,
-        temperature=0.7,
-    )
+    try:
+        user_experience = int(user_experience_str)
+    except ValueError:
+        print("Invalid experience value, must be a numeric string")
+        return []
 
-    recommendations = [choice['message']['content'] for choice in response['choices']]
-    return recommendations
+    # Modified MongoDB query based on the actual structure of your document
+    query = {
+    "skill_sets": {"$elemMatch": {"$in": user_skills}},
+    "experience": {"$lte": str(user_experience)}
+    }
+
+
+
+    cursor = job_postings_collection.find(query).sort([("experience", -1)]).limit(10)
+    # print("list",list(cursor))
+
+
+
+    jobs = list(cursor)
+
+    
+
+    return jobs
 
 
 @app.route('/recommend_jobs', methods=['POST'])
 @jwt_required()  # Requires authentication using JWT token
 def recommend_jobs():
     user_id = get_jwt_identity()  # Get the user ID from the JWT token
-    user_skills = request.json.get('skills', [])  # Assuming 'skill_sets' is a list of skills
+    user_skills = request.json.get('skill_sets', [])  # Assuming 'skills' is a list of skills
     user_experience_str = request.json.get('experience', "0")  # Assuming 'experience' is a string value
 
     try:
@@ -73,14 +86,74 @@ def recommend_jobs():
     except ValueError:
         return jsonify({'error': 'Invalid experience value, must be a numeric string'}), 400
 
-    print(user_skills)
-    print(user_id)
-    print(request.json)
+    # Get job recommendations from the database
+    recommended_jobs = get_jobs_from_database(user_skills, user_experience)
 
-    print(user_experience)
-    recommendations = get_job_recommendations(user_skills, user_experience)
+    return jsonify({'recommendations': recommended_jobs}), 200
 
-    return jsonify({'recommendations': recommendations}), 200
+
+
+
+
+
+
+from pymongo import DESCENDING
+# Function to get job recommendations from the database
+def get_users_from_database(user_skills, user_experience_str):
+    db = get_db()
+    job_postings_collection = db["linkme"]["users"]
+
+    try:
+        user_experience = int(user_experience_str)
+    except ValueError:
+        print("Invalid experience value, must be a numeric string")
+        return []
+
+    # Modified MongoDB query based on the actual structure of your document
+    query = {
+    "skills": {"$elemMatch": {"$in": user_skills}}
+    # "experience": {"$lte": str(user_experience)}
+    }
+
+
+    print("query", query)
+    cursor = job_postings_collection.find(query)
+    # print("list",list(cursor))
+
+
+
+    jobs = list(cursor)
+
+    
+
+    return jobs
+
+
+@app.route('/recommend_users', methods=['POST'])
+@jwt_required()  # Requires authentication using JWT token
+def recommend_users():
+    user_id = get_jwt_identity()  # Get the user ID from the JWT token
+    user_skills = request.json.get('skills', [])  # Assuming 'skills' is a list of skills
+    user_experience_str = request.json.get('experience', "0")  # Assuming 'experience' is a string value
+
+    try:
+        user_experience = int(user_experience_str)
+    except ValueError:
+        return jsonify({'error': 'Invalid experience value, must be a numeric string'}), 400
+
+    # Get job recommendations from the database
+    recommended_jobs = get_users_from_database(user_skills, user_experience)
+
+    return json_util.dumps({'recommendations_users': recommended_jobs}), 200
+
+
+
+
+
+
+
+
+
 
 
 
@@ -244,6 +317,7 @@ def create_job_posting():
 # from bson import ObjectId
 
 @app.route('/get_job_posting/<string:job_id>', methods=['GET'])
+@jwt_required()
 def get_job_posting(job_id):
     db = get_db()
 
@@ -272,37 +346,6 @@ def get_job_posting(job_id):
 
 
 
-
-@app.route('/update-job-posting/<string:job_posting_id>', methods=['PUT'])
-def update_job_posting(job_posting_id):
-    data = request.get_json()
-
-    if data:
-        db = get_db()
-        
-        skill_sets_data = data.get('skill_sets', [])
-        skill_sets = [SkillSet(name=skill['name'], description=skill.get('description')) for skill in skill_sets_data]
-
-        result = db.linkme.job_postings.update_one(
-            {'_id': ObjectId(job_posting_id)},
-            {'$set': {
-                'job_title': data.get('job_title'),
-                'status': data.get('status', 'Open'),
-                'start_date': data.get('start_date'),
-                'end_date': data.get('end_date'),
-                'hiring_manager': data.get('hiring_manager'),
-                'skill_sets': [skill.to_dict() for skill in skill_sets],
-                'job_description': data.get('job_description'),
-            }}
-        )
-
-        if result.modified_count > 0:
-            return jsonify({'message': 'Job Posting updated successfully'}), 200
-        else:
-            return jsonify({'error': 'Job Posting not found or not modified'}), 404
-
-    return jsonify({'error': 'Invalid data provided'}), 400
-
 @app.route('/delete-job-posting/<string:job_posting_id>', methods=['DELETE'])
 def delete_job_posting(job_posting_id):
     db = get_db()
@@ -314,7 +357,7 @@ def delete_job_posting(job_posting_id):
         return jsonify({'error': 'Job Posting not found'}), 404
 
 @app.route('/users/bookmark-job/<string:user_id>/<string:job_posting_id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def bookmark_job_by_user_id(user_id, job_posting_id):
     db = get_db()
 
@@ -344,6 +387,36 @@ def bookmark_job_by_user_id(user_id, job_posting_id):
     else:
         return jsonify({'error': 'User not found or bookmark status not modified'}), 404
 
+
+
+@app.route('/update_job_status/<job_id>', methods=['POST'])
+def update_job_status_endpoint(job_id):
+    try:
+        # Get data from the request
+        data = request.get_json()
+        new_status = data.get('status')
+
+        # Get the database connection
+        db = get_db()
+
+        # Selecting the collection
+        job_postings_collection = db["linkme"]["job_postings"]
+
+        # Updating the status for the specified job_id
+        query = {"_id": job_id}
+        update = {"$set": {"status": new_status}}
+
+        result = job_postings_collection.update_one(query, update)
+
+        if result.modified_count > 0:
+            response = {"message": f"Status updated successfully for job {job_id}"}
+        else:
+            response = {"message": f"No job found with id {job_id}"}
+
+    except Exception as e:
+        response = {"error": f"Error updating status: {e}"}
+
+    return jsonify(response)
 
 
 
@@ -457,7 +530,7 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
-@login_required
+@jwt_required()
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
@@ -495,6 +568,17 @@ def load_user(user_id):
     db = get_db()
     user_collection = db.linkme.users  # Adjust this based on your actual collection name
     return User.get_user_by_id(user_id, user_collection)
+
+
+
+
+@app.route('/get_all_users', methods=['GET'])
+def get_all_users():
+    db = get_db()
+    applications_data = list(db.linkme.users.find())
+
+    return json_util.dumps({'users': applications_data}), 200
+
 
 
 bcrypt = Bcrypt()
@@ -612,7 +696,7 @@ def login():
 
 # Logout route
 @app.route('/logout', methods=['GET'])
-@login_required
+@jwt_required()
 def logout():
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
@@ -620,7 +704,7 @@ def logout():
 
 
 @app.route('/users/<string:user_id>', methods=['GET'])
-@login_required
+@jwt_required()
 def get_user_by_id(user_id):
     db = get_db()
     user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
@@ -632,7 +716,7 @@ def get_user_by_id(user_id):
 
 # Endpoint to update a user by ID
 @app.route('/users/<string:user_id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def update_user_by_id(user_id):
     data = request.get_json()
 
@@ -665,7 +749,7 @@ def update_user_by_id(user_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/users/bookmarked/<string:user_id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def update_bookmark_user_by_id(user_id):
     data = request.get_json()
 
@@ -701,6 +785,9 @@ def update_password():
         # Hash the new password using bcrypt
         hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
+        # Get the MongoDB client using the get_db function
+        db = get_db()
+
         # Update the user's password in the database
         result = db.linkme.users.update_one(
             {'_id': ObjectId(user_id)},
@@ -717,6 +804,8 @@ def update_password():
 
 
 
+    
+   
 
 
 
