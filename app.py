@@ -683,7 +683,7 @@ def login():
 
 # Logout route
 @app.route('/logout', methods=['GET'])
-@jwt_required() 
+# @jwt_required() 
 def logout():
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
@@ -736,7 +736,7 @@ def update_user_by_id(user_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/users/bookmarked/<string:user_id>', methods=['PUT'])
-@jwt_required()
+# @jwt_required()
 def update_bookmark_user_by_id(user_id):
     data = request.get_json()
 
@@ -758,7 +758,7 @@ def update_bookmark_user_by_id(user_id):
 
 
 @app.route('/update-password', methods=['PUT'])
-@jwt_required() 
+# @jwt_required() 
 def update_password():
     user_id = get_jwt_identity()
     data = request.get_json()
