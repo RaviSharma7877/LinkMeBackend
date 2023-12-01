@@ -423,7 +423,6 @@ def update_job_status_endpoint(job_id):
 
 # application
 @app.route('/get_all_applications', methods=['GET'])
-@jwt_required() 
 def get_all_applications():
     db = get_db()
     applications_data = list(db.linkme.applications.find())
@@ -432,7 +431,6 @@ def get_all_applications():
 
 
 @app.route('/apply/<string:job_posting_id>/<string:job_seeker_id>', methods=['POST'])
-@jwt_required() 
 def apply(job_posting_id, job_seeker_id):
     data = request.get_json()
 
@@ -478,7 +476,6 @@ def apply(job_posting_id, job_seeker_id):
 
 
 @app.route('/update-application-status/<string:application_id>', methods=['PUT'])
-@jwt_required() 
 def update_application_status(application_id):
     data = request.get_json()
 
@@ -497,7 +494,6 @@ def update_application_status(application_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/delete-application/<string:application_id>', methods=['DELETE'])
-@jwt_required() 
 def delete_application(application_id):
     db = get_db()
     
@@ -527,7 +523,6 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
-@jwt_required() 
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
@@ -567,7 +562,6 @@ def load_user(user_id):
     return User.get_user_by_id(user_id, user_collection)
 
 @app.route('/get_all_users', methods=['GET'])
-@jwt_required() 
 def get_all_users():
     db = get_db()
     applications_data = list(db.linkme.users.find())
