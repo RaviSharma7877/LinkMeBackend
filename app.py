@@ -82,7 +82,7 @@ def get_jobs_from_database(user_skills, user_experience_str):
 
 
 @app.route('/recommend_jobs', methods=['POST'])
-@jwt_required()  # Requires authentication using JWT token
+  # Requires authentication using JWT token
 def recommend_jobs():
     user_id = get_jwt_identity()  # Get the user ID from the JWT token
     user_skills = request.json.get('skill_sets', [])  # Assuming 'skills' is a list of skills
@@ -137,7 +137,7 @@ def get_users_from_database(user_skills, user_experience_str):
 
 
 @app.route('/recommend_users', methods=['POST'])
-@jwt_required()  # Requires authentication using JWT token
+  # Requires authentication using JWT token
 def recommend_users():
     user_id = get_jwt_identity()  # Get the user ID from the JWT token
     user_skills = request.json.get('skills', [])  # Assuming 'skills' is a list of skills
@@ -324,7 +324,7 @@ def create_job_posting():
 # from bson import ObjectId
 
 @app.route('/get_job_posting/<string:job_id>', methods=['GET'])
-@jwt_required()
+
 def get_job_posting(job_id):
     db = get_db()
 
@@ -364,7 +364,7 @@ def delete_job_posting(job_posting_id):
         return jsonify({'error': 'Job Posting not found'}), 404
 
 @app.route('/users/bookmark-job/<string:user_id>/<string:job_posting_id>', methods=['PUT'])
-@jwt_required()
+
 def bookmark_job_by_user_id(user_id, job_posting_id):
     db = get_db()
 
@@ -537,7 +537,7 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
-@jwt_required()
+
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
@@ -571,7 +571,7 @@ def check_application(job_posting_id):
 app.config['SECRET_KEY'] = 'MySecreatKeyIsMaiNahiBataunga'
 
 @login_manager.user_loader
-# @jwt_required()
+# 
 def load_user(user_id):
     db = get_db()
     user_collection = db.linkme.users  # Adjust this based on your actual collection name
@@ -704,7 +704,7 @@ def login():
 
 # Logout route
 @app.route('/logout', methods=['GET'])
-@jwt_required()
+
 def logout():
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
@@ -712,7 +712,7 @@ def logout():
 
 
 @app.route('/users/<string:user_id>', methods=['GET'])
-# @jwt_required()
+# 
 def get_user_by_id(user_id):
     db = get_db()
     user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
@@ -724,7 +724,7 @@ def get_user_by_id(user_id):
 
 # Endpoint to update a user by ID
 @app.route('/users/<string:user_id>', methods=['PUT'])
-@jwt_required()
+
 def update_user_by_id(user_id):
     data = request.get_json()
 
@@ -757,7 +757,7 @@ def update_user_by_id(user_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/users/bookmarked/<string:user_id>', methods=['PUT'])
-@jwt_required()
+
 def update_bookmark_user_by_id(user_id):
     data = request.get_json()
 
@@ -779,7 +779,7 @@ def update_bookmark_user_by_id(user_id):
 
 
 @app.route('/update-password', methods=['PUT'])
-@jwt_required()  # Requires authentication using JWT token
+  # Requires authentication using JWT token
 def update_password():
     user_id = get_jwt_identity()  # Get the user ID from the JWT token
     data = request.get_json()
