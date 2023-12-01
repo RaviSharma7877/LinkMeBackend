@@ -523,7 +523,7 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
-@jwt_required
+@login_required
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
