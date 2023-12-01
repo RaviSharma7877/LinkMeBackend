@@ -190,61 +190,61 @@ def get_data():
 def before_request():
     g.db = get_db()
 
-@app.route('/job_seeker/create', methods=['POST'])
-def create():
-    data = request.get_json()
+# @app.route('/job_seeker/create', methods=['POST'])
+# def create():
+#     data = request.get_json()
 
-    if data:
-        job_seeker_data = {
-            'name': data.get('name'),
-            'status': data.get('status', False),
-            'skills': data.get('skills', []),
-            'experience': data.get('experience'),
-            'bio': data.get('bio'),
-            'availability': datetime.utcnow() if data.get('availability') else None
-        }
+#     if data:
+#         job_seeker_data = {
+#             'name': data.get('name'),
+#             'status': data.get('status', False),
+#             'skills': data.get('skills', []),
+#             'experience': data.get('experience'),
+#             'bio': data.get('bio'),
+#             'availability': datetime.utcnow() if data.get('availability') else None
+#         }
 
-        db = get_db()
-        db.linkme.job_seekers.insert_one(job_seeker_data)
+#         db = get_db()
+#         db.linkme.job_seekers.insert_one(job_seeker_data)
 
-        return jsonify({'message': 'Job Seeker created successfully'}), 200
+#         return jsonify({'message': 'Job Seeker created successfully'}), 200
 
-    return jsonify({'error': 'Invalid data provided'}), 400
+#     return jsonify({'error': 'Invalid data provided'}), 400
 
-@app.route('/update/<string:job_seeker_id>', methods=['PUT'])
-def update(job_seeker_id):
-    data = request.get_json()
+# @app.route('/update/<string:job_seeker_id>', methods=['PUT'])
+# def update(job_seeker_id):
+#     data = request.get_json()
 
-    if data:
-        db = get_db()
-        result = db.linkme.job_seekers.update_one(
-            {'_id': ObjectId(job_seeker_id)},
-            {'$set': {
-                'name': data.get('name'),
-                'status': data.get('status', False),
-                'skills': data.get('skills', []),
-                'experience': data.get('experience'),
-                'bio': data.get('bio'),
-                'availability': datetime.utcnow() if data.get('availability') else None
-            }}
-        )
+#     if data:
+#         db = get_db()
+#         result = db.linkme.job_seekers.update_one(
+#             {'_id': ObjectId(job_seeker_id)},
+#             {'$set': {
+#                 'name': data.get('name'),
+#                 'status': data.get('status', False),
+#                 'skills': data.get('skills', []),
+#                 'experience': data.get('experience'),
+#                 'bio': data.get('bio'),
+#                 'availability': datetime.utcnow() if data.get('availability') else None
+#             }}
+#         )
 
-        if result.modified_count > 0:
-            return jsonify({'message': 'Job Seeker updated successfully'}), 200
-        else:
-            return jsonify({'error': 'Job Seeker not found or not modified'}), 404
+#         if result.modified_count > 0:
+#             return jsonify({'message': 'Job Seeker updated successfully'}), 200
+#         else:
+#             return jsonify({'error': 'Job Seeker not found or not modified'}), 404
 
-    return jsonify({'error': 'Invalid data provided'}), 400
+#     return jsonify({'error': 'Invalid data provided'}), 400
 
-@app.route('/delete/<string:job_seeker_id>', methods=['DELETE'])
-def delete(job_seeker_id):
-    db = get_db()
-    result = db.linkme.job_seekers.delete_one({'_id': ObjectId(job_seeker_id)})
+# @app.route('/delete/<string:job_seeker_id>', methods=['DELETE'])
+# def delete(job_seeker_id):
+#     db = get_db()
+#     result = db.linkme.job_seekers.delete_one({'_id': ObjectId(job_seeker_id)})
 
-    if result.deleted_count > 0:
-        return jsonify({'message': 'Job Seeker deleted successfully'}), 200
-    else:
-        return jsonify({'error': 'Job Seeker not found'}), 404
+#     if result.deleted_count > 0:
+#         return jsonify({'message': 'Job Seeker deleted successfully'}), 200
+#     else:
+#         return jsonify({'error': 'Job Seeker not found'}), 404
 
 
 
@@ -255,12 +255,14 @@ def delete(job_seeker_id):
 
 # job postion
 @app.route('/jobpostings', methods=['GET'])
+@jwt_required() 
 def get_job_postings():
     db = get_db()
     job_postings_data = list(db.linkme.job_postings.find())
     
     return json_util.dumps({'job_postings': job_postings_data}), 200
 @app.route('/create_job_posting', methods=['POST'])
+@jwt_required() 
 def create_job_posting():
     db = get_db()
 
@@ -306,6 +308,7 @@ def create_job_posting():
 
 
 @app.route('/get_job_posting/<string:job_id>', methods=['GET'])
+@jwt_required() 
 def get_job_posting(job_id):
     db = get_db()
 
@@ -335,6 +338,7 @@ def get_job_posting(job_id):
 
 
 @app.route('/delete-job-posting/<string:job_posting_id>', methods=['DELETE'])
+@jwt_required() 
 def delete_job_posting(job_posting_id):
     db = get_db()
     result = db.linkme.job_postings.delete_one({'_id': ObjectId(job_posting_id)})
@@ -345,6 +349,7 @@ def delete_job_posting(job_posting_id):
         return jsonify({'error': 'Job Posting not found'}), 404
 
 @app.route('/users/bookmark-job/<string:user_id>/<string:job_posting_id>', methods=['PUT'])
+@jwt_required() 
 def bookmark_job_by_user_id(user_id, job_posting_id):
     db = get_db()
 
@@ -377,6 +382,7 @@ def bookmark_job_by_user_id(user_id, job_posting_id):
 
 
 @app.route('/update_job_status/<job_id>', methods=['POST'])
+@jwt_required() 
 def update_job_status_endpoint(job_id):
     try:
         # Get data from the request
@@ -417,6 +423,7 @@ def update_job_status_endpoint(job_id):
 
 # application
 @app.route('/get_all_applications', methods=['GET'])
+@jwt_required() 
 def get_all_applications():
     db = get_db()
     applications_data = list(db.linkme.applications.find())
@@ -425,6 +432,7 @@ def get_all_applications():
 
 
 @app.route('/apply/<string:job_posting_id>/<string:job_seeker_id>', methods=['POST'])
+@jwt_required() 
 def apply(job_posting_id, job_seeker_id):
     data = request.get_json()
 
@@ -470,6 +478,7 @@ def apply(job_posting_id, job_seeker_id):
 
 
 @app.route('/update-application-status/<string:application_id>', methods=['PUT'])
+@jwt_required() 
 def update_application_status(application_id):
     data = request.get_json()
 
@@ -488,6 +497,7 @@ def update_application_status(application_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/delete-application/<string:application_id>', methods=['DELETE'])
+@jwt_required() 
 def delete_application(application_id):
     db = get_db()
     
@@ -517,6 +527,7 @@ def delete_application(application_id):
 
 
 @app.route('/applications/<string:job_posting_id>', methods=['GET'])
+@jwt_required() 
 def check_application(job_posting_id):
     # Get the user ID from the current_user object
     user_id = current_user._id
@@ -556,6 +567,7 @@ def load_user(user_id):
     return User.get_user_by_id(user_id, user_collection)
 
 @app.route('/get_all_users', methods=['GET'])
+@jwt_required() 
 def get_all_users():
     db = get_db()
     applications_data = list(db.linkme.users.find())
@@ -676,6 +688,7 @@ def login():
 
 # Logout route
 @app.route('/logout', methods=['GET'])
+@jwt_required() 
 def logout():
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
@@ -683,6 +696,7 @@ def logout():
 
 
 @app.route('/users/<string:user_id>', methods=['GET'])
+@jwt_required() 
 def get_user_by_id(user_id):
     db = get_db()
     user = db.linkme.users.find_one({'_id': ObjectId(user_id)})
@@ -694,7 +708,7 @@ def get_user_by_id(user_id):
 
 # Endpoint to update a user by ID
 @app.route('/users/<string:user_id>', methods=['PUT'])
-# @jwt_required()
+@jwt_required()
 def update_user_by_id(user_id):
     data = request.get_json()
 
@@ -727,7 +741,7 @@ def update_user_by_id(user_id):
     return jsonify({'error': 'Invalid data provided'}), 400
 
 @app.route('/users/bookmarked/<string:user_id>', methods=['PUT'])
-# @jwt_required()
+@jwt_required()
 def update_bookmark_user_by_id(user_id):
     data = request.get_json()
 
@@ -749,7 +763,7 @@ def update_bookmark_user_by_id(user_id):
 
 
 @app.route('/update-password', methods=['PUT'])
-# @jwt_required() 
+@jwt_required() 
 def update_password():
     user_id = get_jwt_identity()
     data = request.get_json()
