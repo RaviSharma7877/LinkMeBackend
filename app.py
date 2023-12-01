@@ -255,14 +255,14 @@ def before_request():
 
 # job postion
 @app.route('/jobpostings', methods=['GET'])
-@jwt_required() 
+# @jwt_required() 
 def get_job_postings():
     db = get_db()
     job_postings_data = list(db.linkme.job_postings.find())
     
     return json_util.dumps({'job_postings': job_postings_data}), 200
 @app.route('/create_job_posting', methods=['POST'])
-@jwt_required() 
+# @jwt_required() 
 def create_job_posting():
     db = get_db()
 
@@ -308,7 +308,7 @@ def create_job_posting():
 
 
 @app.route('/get_job_posting/<string:job_id>', methods=['GET'])
-@jwt_required() 
+# @jwt_required() 
 def get_job_posting(job_id):
     db = get_db()
 
@@ -338,7 +338,7 @@ def get_job_posting(job_id):
 
 
 @app.route('/delete-job-posting/<string:job_posting_id>', methods=['DELETE'])
-@jwt_required() 
+# @jwt_required() 
 def delete_job_posting(job_posting_id):
     db = get_db()
     result = db.linkme.job_postings.delete_one({'_id': ObjectId(job_posting_id)})
@@ -349,7 +349,7 @@ def delete_job_posting(job_posting_id):
         return jsonify({'error': 'Job Posting not found'}), 404
 
 @app.route('/users/bookmark-job/<string:user_id>/<string:job_posting_id>', methods=['PUT'])
-@jwt_required() 
+# @jwt_required() 
 def bookmark_job_by_user_id(user_id, job_posting_id):
     db = get_db()
 
@@ -382,7 +382,7 @@ def bookmark_job_by_user_id(user_id, job_posting_id):
 
 
 @app.route('/update_job_status/<job_id>', methods=['POST'])
-@jwt_required() 
+# @jwt_required() 
 def update_job_status_endpoint(job_id):
     try:
         # Get data from the request
