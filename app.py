@@ -419,7 +419,7 @@ def update_job_status_endpoint(job_id):
 
 
 
-
+from werkzeug.utils import secure_filename
 
 # application
 @app.route('/get_all_applications', methods=['GET'])
@@ -429,42 +429,69 @@ def get_all_applications():
 
     return json_util.dumps({'applications': applications_data}), 200
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 
 @app.route('/apply/<string:job_posting_id>/<string:job_seeker_id>', methods=['POST'])
 def apply(job_posting_id, job_seeker_id):
-    data = request.get_json()
-
-    db = get_db()
-
-    
     if not ObjectId.is_valid(job_seeker_id) or not ObjectId.is_valid(job_posting_id):
         return jsonify({'error': 'Invalid job_seeker_id or job_posting_id format'}), 400
 
     job_seeker = get_job_seeker(job_seeker_id)
     job_posting = get_job_posting(job_posting_id)
 
-   
     if not job_seeker:
-        return jsonify({'error': 'Job seeker or job posting not found'}), 404
+        return jsonify({'error': 'Job seeker not found'}), 404
 
     if not job_posting:
-        return jsonify({'error': 'job posting not found'}), 404 
+        return jsonify({'error': 'Job posting not found'}), 404
+
+    # Get data from JSON payload
+    data = request.get_json()
+    db = get_db()
+    print(f"Received files: {data}")
+
     if data:
+        # Check if 'resume' file is present in the request
+        print(request.files)
+        if 'resume' in request.files:
+            resume_file = request.files['resume']
+
+            # Check if the file has an allowed extension
+            if resume_file and allowed_file(resume_file.filename):
+                # Secure the file name to prevent potential security issues
+                filename = secure_filename(resume_file.filename)
+
+                # Save the file to the upload folder
+                resume_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+                # Store the file path or relevant information in the database
+                resume_data = {'file_path': os.path.join(app.config['UPLOAD_FOLDER'], filename)}
+            else:
+                return jsonify({'error': 'Invalid file format for resume'}), 400
+        else:
+            return jsonify({'error': 'Resume file not provided'}), 400
+
+        # Application data
         application_data = {
             'job_seeker_id': job_seeker_id,
             'job_posting_id': job_posting_id,
             'status': 'Pending',
             'details': data.get('details', {}),
+            'resume': resume_data  # Store resume data in the application
         }
 
+        # Insert application data into the database
         result = db.linkme.applications.insert_one(application_data)
         application_id = str(result.inserted_id)
 
-        
+        # Update job seeker and job posting with the application ID
         db.linkme.job_seekers.update_one(
             {'_id': ObjectId(job_seeker_id)},
             {'$push': {'applications': application_id}}
         )
+
         db.linkme.job_postings.update_one(
             {'_id': ObjectId(job_posting_id)},
             {'$push': {'applications': application_id}}
