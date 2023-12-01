@@ -193,11 +193,11 @@ def load_identity():
 @app.route('/', methods=['GET'])
 def get_data():
     db = get_db()
-    job_seekers_data = list(db.linkme.job_seekers.find())
+    job_seekers_data = list(db.linkme.users.find())
     job_postings_data = list(db.linkme.job_postings.find())
     applications_data = list(db.linkme.applications.find())
 
-    return json_util.dumps({'job_seekers': job_seekers_data, 'job_postings': job_postings_data, 'applications': applications_data})
+    return json_util.dumps({'users': job_seekers_data, 'job_postings': job_postings_data, 'applications': applications_data})
 
 
 @app.before_request
